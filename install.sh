@@ -99,14 +99,19 @@ if [ "$SYS_TYPE" == "unifi" ]; then
     ln -sf /data/.hetzner.sh /root/.hetzner.sh
 fi
 
-# 8. Cronjob automatisch einrichten
-CRON_CMD="*/5 * * * * ${INSTALL_DIR}/hetzner.sh >/dev/null 2>&1"
-(crontab -l 2>/dev/null | grep -v "${INSTALL_DIR}/hetzner.sh"; echo "$CRON_CMD") | crontab -
-
-echo -e "${GREEN}✓ Installation erfolgreich abgeschlossen!${NC}"
-echo -e "Installationsverzeichnis: ${YELLOW}${INSTALL_DIR}${NC}"
-echo -e "Cronjob wurde eingerichtet (Ausführung alle 5 Minuten).\n"
-
-# 9. Ersten Testlauf durchführen
-echo "Starte Erstprüfung..."
-"${INSTALL_DIR}/hetzner.sh"
+# 8. Cronjob / Task Scheduler automatisch einrichten
+if [ "$SYS_TYPE" == "edgeos" ]; then
+    echo -e "\nRichte EdgeOS Task-Scheduler nativ in der Config ein..."
+    
+    # Vyatta Shell API nutzen, um Änderungen persistent in config.boot zu speichern
+    /opt/vyatta/bin/vyatta-cli-shell-api begin
+    /opt/vyatta/bin/vyatta-cli-shell-api set system task-scheduler task hetzner-dyndns executable path "${INSTALL_DIR}/hetzner.sh"
+    /opt/vyatta/bin/vyatta-cli-shell-api set system task-scheduler task hetzner-dyndns interval 5m
+    /opt/vyatta/bin/vyatta-cli-shell-api commit
+    /opt/vyatta/bin/vyatta-cli-shell-api save
+    /opt/vyatta/bin/vyatta-cli-shell-api end
+else
+    # Für UniFi OS und generisches Linux reicht die normale Crontab
+    CRON_CMD="*/5 * * * * ${INSTALL_DIR}/hetzner.sh >/dev/null 2>&1"
+    (crontab -l 2>/dev/null | grep -v "${INSTALL_DIR}/hetzner.sh"; echo "$CRON_CMD") | crontab -
+fi
