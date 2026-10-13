@@ -22,7 +22,7 @@ It is specifically engineered to run reliably on Ubiquiti routing hardware (**Un
 SSH into your router/gateway or Linux server as root and run the one-line installer:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/zege-at/hetzner.sh/refs/heads/main/install.sh | bash
+sudo curl -fsSL https://raw.githubusercontent.com/zege-at/hetzner.sh/refs/heads/main/install.sh | bash
 ```
 
 What the Installer Does:
