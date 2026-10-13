@@ -1,0 +1,11 @@
+# Credentials & local secrets
+hetzner.sh.env
+
+# Runtime cache & logs
+hetzner_last_ip.txt
+hetzner.log
+*.log
+
+# OS & Editor artifacts
+.DS_Store
+.vscode/
