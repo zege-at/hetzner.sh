@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
-# Hetzner Dynamic DNS Script (Interactive & Cron friendly)
-# Folder: /root/.hetzner.sh/
+# Dynamic Hetzner DNS Updater
+# Works on UniFi OS, EdgeOS, Debian, Ubuntu, Alpine, etc.
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,24 +9,30 @@ ENV_FILE="${SCRIPT_DIR}/hetzner.sh.env"
 CACHE_FILE="${SCRIPT_DIR}/hetzner_last_ip.txt"
 LOG_FILE="${SCRIPT_DIR}/hetzner.log"
 
-# Hilfsfunktion für Logging & Konsolenausgabe
 log_msg() {
     local TIMESTAMP
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
     local MSG="$TIMESTAMP $1"
     echo "$MSG" >> "$LOG_FILE"
-    # Ausgabe im Terminal, falls interaktiv ausgeführt
     if [ -t 1 ]; then
         echo "$MSG"
     fi
 }
+
+# Prüfen, ob benötigte CLI-Tools installiert sind
+for cmd in curl jq; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        log_msg "[ERROR] Benötigtes Tool '$cmd' ist nicht installiert."
+        exit 1
+    fi
+done
 
 # Environment-Datei laden
 if [ -f "$ENV_FILE" ]; then
     # shellcheck source=/dev/null
     source "$ENV_FILE"
 else
-    echo "[ERROR] Konfigurationsdatei '$ENV_FILE' fehlt." >&2
+    log_msg "[ERROR] Konfigurationsdatei '$ENV_FILE' fehlt. Bitte erstelle sie aus hetzner.sh.env.example."
     exit 1
 fi
 
@@ -40,19 +46,16 @@ get_public_ip() {
 
 CURRENT_IP=$(get_public_ip)
 
-# Validierung der IP
 if [[ ! "$CURRENT_IP" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
     log_msg "[ERROR] Keine gültige WAN-IP ermittelt: '$CURRENT_IP'"
     exit 1
 fi
 
-# IP-Cache prüfen
 LAST_IP=""
 if [ -f "$CACHE_FILE" ]; then
     LAST_IP=$(cat "$CACHE_FILE")
 fi
 
-# Beenden, wenn IP unverändert
 if [ "$CURRENT_IP" == "$LAST_IP" ]; then
     if [ -t 1 ]; then
         echo "[INFO] IP unverändert ($CURRENT_IP). Kein Update erforderlich."
@@ -60,7 +63,6 @@ if [ "$CURRENT_IP" == "$LAST_IP" ]; then
     exit 0
 fi
 
-# Zone-ID abfragen
 ZONES_RESPONSE=$(curl -s -H "Authorization: Bearer ${HETZNER_API_TOKEN}" "https://api.hetzner.cloud/v1/zones")
 ZONE_ID=$(echo "$ZONES_RESPONSE" | jq -r ".zones[]? | select(.name == \"${ZONE_NAME}\") | .id")
 
@@ -69,7 +71,6 @@ if [ -z "$ZONE_ID" ] || [ "$ZONE_ID" == "null" ]; then
     exit 1
 fi
 
-# Live-IP bei Hetzner prüfen (falls Cache gelöscht wurde)
 RRSET_RESPONSE=$(curl -s -H "Authorization: Bearer ${HETZNER_API_TOKEN}" "https://api.hetzner.cloud/v1/zones/${ZONE_ID}/rrsets/${RECORD_NAME}/A")
 REMOTE_IP=$(echo "$RRSET_RESPONSE" | jq -r '.rrset.records[0].value // empty')
 
@@ -81,7 +82,6 @@ if [ "$REMOTE_IP" == "$CURRENT_IP" ]; then
     exit 0
 fi
 
-# Record aktualisieren
 UPDATE_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
   "https://api.hetzner.cloud/v1/zones/${ZONE_ID}/rrsets/${RECORD_NAME}/A/actions/set_records" \
   -H "Content-Type: application/json" \
