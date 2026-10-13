@@ -103,13 +103,18 @@ fi
 if [ "$SYS_TYPE" == "edgeos" ]; then
     echo -e "\nRichte EdgeOS Task-Scheduler nativ in der Config ein..."
     
-    # Vyatta Shell API nutzen, um Änderungen persistent in config.boot zu speichern
-    /opt/vyatta/bin/vyatta-cli-shell-api begin
-    /opt/vyatta/bin/vyatta-cli-shell-api set system task-scheduler task hetzner-dyndns executable path "${INSTALL_DIR}/hetzner.sh"
-    /opt/vyatta/bin/vyatta-cli-shell-api set system task-scheduler task hetzner-dyndns interval 5m
-    /opt/vyatta/bin/vyatta-cli-shell-api commit
-    /opt/vyatta/bin/vyatta-cli-shell-api save
-    /opt/vyatta/bin/vyatta-cli-shell-api end
+    WRAPP="/opt/vyatta/sbin/vyatta-cfg-cmd-wrapper"
+    if [ -f "$WRAPP" ]; then
+        $WRAPP begin
+        $WRAPP set system task-scheduler task hetzner-dyndns executable path "${INSTALL_DIR}/hetzner.sh"
+        $WRAPP set system task-scheduler task hetzner-dyndns interval 5m
+        $WRAPP commit
+        $WRAPP save
+        $WRAPP end
+    else
+        echo -e "${RED}[ERROR] EdgeOS Vyatta-Wrapper konnte nicht gefunden werden.${NC}"
+        exit 1
+    fi
 else
     # Für UniFi OS und generisches Linux reicht die normale Crontab
     CRON_CMD="*/5 * * * * ${INSTALL_DIR}/hetzner.sh >/dev/null 2>&1"
