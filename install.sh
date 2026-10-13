@@ -6,7 +6,7 @@
 
 set -e
 
-REPO_URL="https://raw.githubusercontent.com/DEIN_USERNAME/DEIN_REPO/main"
+REPO_URL="https://raw.githubusercontent.com/zege-at/hetzner.sh/main"
 
 # Farben für Terminal-Ausgabe
 RED='\033[0;31m'
